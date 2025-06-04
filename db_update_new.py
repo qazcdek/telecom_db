@@ -167,7 +167,7 @@ def upsert_benefit(cursor: sqlite3.Cursor, combined_product_id: str, benefit_dat
 
 # === 예시 데이터 및 실행 ===
 
-def insert_example_data_v2(db_name="combined_products_final.db", **kwargs):
+def insert_example_data_v2(db_name="combined_products.db", **kwargs):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     
@@ -272,9 +272,9 @@ def insert_example_data_v2(db_name="combined_products_final.db", **kwargs):
 # 데이터베이스 스키마 생성 및 예시 데이터 삽입 실행
 if __name__ == "__main__":
     # 데이터베이스 스키마 생성
-    db_name = "combined_products_final.db"
-    create_combined_product_db("combined_products_final.db")
-    create_company_table("combined_products_final.db")
+    db_name = "combined_products.db"
+    create_combined_product_db("combined_products.db")
+    create_company_table("combined_products.db")
 
     # 1. '따로 살아도 가족결합' 전체 데이터 삽입/업데이트 예시
     company_name = "kt"
@@ -310,11 +310,17 @@ if __name__ == "__main__":
         "available": True
     }
     
+    db_name="combined_products.db"
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT sp.service_type, sp.name, sp.fee FROM ServicePlan sp WHERE company_id = ?", (company_id,))
+    mobile_all = cursor.fetchall()
+    
     family_service_plan_definitions = [
         # 모바일 (예시 요금제 - PDF에 구체적인 요금제 명시 안됨, 요고뭉치 PDF에서 요고30 참조)
-        ("Mobile", "요고30", 30000), 
-        ("Mobile", "5G 심플", 61000), # [cite: 66]
-        ("Mobile", "5G 초이스", 90000), # [cite: 66]
+        # db_update_mobile.py에서 5G 요금제 전부 업데이트
+
         # 인터넷 (따로 살아도 가족결합 PDF에 언급된 이름과 매칭)
         ("Internet", "인터넷 에센스", 55000), # [cite: 4] (요고뭉치 PDF에 명시된 무약정 요금 사용)
         ("Internet", "인터넷 베이직", 46200), # [cite: 4]
@@ -326,8 +332,16 @@ if __name__ == "__main__":
         ("TV", "지니 TV VOD 초이스", 31020), # [cite: 7]
         ("TV", "지니 TV 에센스", 25300), # [cite: 7]
         ("TV", "지니 TV 베이직", 18150), # [cite: 7]
-    ]
+    ] + mobile_all
 
+    mobile_eligibility_data = []
+    for mobile_plan in mobile_all:
+        mobile_eligibility_data.append({
+            "plan_name": mobile_plan[1],
+            "min_lines": 0, 
+            "max_lines": 10, 
+            "is_base_plan_required": False
+        })
     family_eligibility_data = [
         # 인터넷 (베이스 인터넷 지정 필수)
         {"plan_name": "인터넷 에센스", "min_lines": 0, "max_lines": 5, "is_base_plan_required": True},
@@ -337,14 +351,11 @@ if __name__ == "__main__":
         {"plan_name": "인터넷 베이직 와이파이", "min_lines": 0, "max_lines": 5, "is_base_plan_required": False},
         {"plan_name": "인터넷 슬림 와이파이", "min_lines": 0, "max_lines": 5, "is_base_plan_required": False},
         # 모바일 (최대 10회선)
-        {"plan_name": "요고30", "min_lines": 0, "max_lines": 10, "is_base_plan_required": False},
-        {"plan_name": "5G 심플", "min_lines": 0, "max_lines": 10, "is_base_plan_required": False},
-        {"plan_name": "5G 초이스", "min_lines": 0, "max_lines": 10, "is_base_plan_required": False},
         # TV (최대 5회선)
         {"plan_name": "지니 TV VOD 초이스", "min_lines": 0, "max_lines": 5, "is_base_plan_required": False},
         {"plan_name": "지니 TV 에센스", "min_lines": 0, "max_lines": 5, "is_base_plan_required": False},
         {"plan_name": "지니 TV 베이직", "min_lines": 0, "max_lines": 5, "is_base_plan_required": False},
-    ]
+    ] + mobile_eligibility_data
 
     discount_name = "인터넷/TV 2번째 회선부터 추가 할인"
     discount_additional_internet_tv_lines_id = hash_id(f"{product_id}-{discount_name}")
@@ -432,10 +443,10 @@ if __name__ == "__main__":
     # 요고뭉치에 특화된 요금제. 이미 '따로 살아도 가족결합'에서 넣은 요금제와 겹칠 수 있으나,
     # upsert_service_plan 함수가 ON CONFLICT DO UPDATE SET을 사용하여 중복을 처리함
     yogo_mungchi_service_plan_definitions = [
-        ("Mobile", "요고30", 43000),
         ("Internet", "인터넷 에센스", 55000), # [cite: 4]
         ("Internet", "인터넷 베이직", 46200), # [cite: 4]
         ("Internet", "인터넷 슬림", 39600), # [cite: 4]
+        ("Internet", "인터넷 에센스 와이파이", 63800), # [cite: 7]
         ("Internet", "인터넷 베이직 와이파이", 55000), # [cite: 7]
         ("Internet", "인터넷 슬림 와이파이", 48400), # [cite: 7]
         ("TV", "지니 TV VOD 초이스", 31020), # [cite: 7]
@@ -444,10 +455,11 @@ if __name__ == "__main__":
     ]
 
     yogo_mungchi_eligibility_data = [
-        {"plan_name": "요고30", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 모바일 1회선 필수 [cite: 12]
+        {"plan_name": "요고 30", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 모바일 1회선 필수 [cite: 12]
         {"plan_name": "인터넷 에센스", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
         {"plan_name": "인터넷 베이직", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
         {"plan_name": "인터넷 슬림", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
+        {"plan_name": "인터넷 에센스 와이파이", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
         {"plan_name": "인터넷 베이직 와이파이", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
         {"plan_name": "인터넷 슬림 와이파이", "min_lines": 1, "max_lines": 1, "is_base_plan_required": False}, # 인터넷 1회선 필수 [cite: 12]
         {"plan_name": "지니 TV VOD 초이스", "min_lines": 0, "max_lines": 1, "is_base_plan_required": False}, # IPTV는 선택 [cite: 12]
@@ -471,7 +483,8 @@ if __name__ == "__main__":
     yogo_mungchi_discount_by_plan_conditions = [
         {"plan_name": "인터넷 에센스", "override_value": 22000, "override_unit": "KRW"}, # [cite: 4]
         {"plan_name": "인터넷 베이직", "override_value": 18700, "override_unit": "KRW"}, # [cite: 4]
-        {"plan_name": "인터넷 슬림", "override_value": 17500, "override_unit": "KRW"}, # [cite: 4]
+        {"plan_name": "인터넷 슬림", "override_value": 17600, "override_unit": "KRW"}, # [cite: 4]
+        {"plan_name": "인터넷 에센스 와이파이", "override_value": 30800, "override_unit": "KRW"}, # [cite: 7]
         {"plan_name": "인터넷 베이직 와이파이", "override_value": 26400, "override_unit": "KRW"}, # [cite: 7]
         {"plan_name": "인터넷 슬림 와이파이", "override_value": 25300, "override_unit": "KRW"}, # [cite: 7]
         {"plan_name": "지니 TV VOD 초이스", "override_value": 10120, "override_unit": "KRW"}, # [cite: 7]

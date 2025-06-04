@@ -1,13 +1,34 @@
 import sqlite3
 import hashlib # hash_id 함수가 다른 파일에 있다면 필요 없음
+import itertools
+from itertools import combinations, product, combinations_with_replacement
 from typing import List, Dict, Any, Optional, Tuple
 
-def get_db_connection(db_name: str = "combined_products_final.db"):
+# db 연결
+def get_db_connection(db_name: str = "combined_products.db"):
     """데이터베이스 연결을 반환합니다."""
     conn = sqlite3.connect(db_name)
     conn.row_factory = sqlite3.Row  # 컬럼 이름으로 데이터 접근 가능하게 설정
     return conn
 
+def classify_discount_type(cursor, discount_id: int) -> str:
+    """해당 discount_id의 조건이 요금제 기반인지, 회선 수 기반인지, 혼합인지 판단"""
+    cursor.execute("SELECT COUNT(*) FROM DiscountConditionByPlan WHERE discount_id = ?", (discount_id,))
+    plan_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM DiscountConditionByLineCount WHERE discount_id = ?", (discount_id,))
+    line_count = cursor.fetchone()[0]
+
+    if plan_count > 0 and line_count > 0:
+        return "mixed"
+    elif plan_count > 0:
+        return "plan_based"
+    elif line_count > 0:
+        return "line_based"
+    else:
+        return "simple"
+
+# 
 def calculate_combined_product_pricing(db_name: str, combined_product_id: str) -> Optional[Dict[str, Any]]:
     """
     특정 결합상품의 총 할인액, 할인 전 가격, 할인 후 가격 및 관련 요금제를 계산합니다.
@@ -58,19 +79,19 @@ def calculate_combined_product_pricing(db_name: str, combined_product_id: str) -
     # 각 서비스 타입별로 가장 요금이 높은 요금제를 선정합니다.
     # 이렇게 하면 결합 상품에 '해당되는' 요금제 중 가장 비싼 요금제를 선택하는 것이 됩니다.
     
-    # 'Mobile' 서비스 요금제 중 가장 비싼 요금제 선택
+    # 'Mobile' 서비스 요금제 선택
     cursor.execute(f"""
         SELECT sp.name, sp.fee, sp.service_type
         FROM ServicePlan sp
         JOIN CombinedProductEligibility cpe ON sp.id = cpe.service_plan_id
         WHERE cpe.combined_product_id = ? AND sp.service_type = 'Mobile'
         ORDER BY sp.fee DESC
-        LIMIT 1
     """, (combined_product_id,))
-    top_mobile_plan = cursor.fetchone()
-    if top_mobile_plan:
-        associated_plans.append({"name": top_mobile_plan['name'], "fee": top_mobile_plan['fee'], "service_type": top_mobile_plan['service_type']})
-        total_base_fee += top_mobile_plan['fee']
+    all_mobile_plan = cursor.fetchall()
+    if all_mobile_plan:
+        for mobile_plan in all_mobile_plan:
+            associated_plans.append({"name": mobile_plan['name'], "fee": mobile_plan['fee'], "service_type": mobile_plan['service_type']})
+            total_base_fee += mobile_plan['fee']
 
     # 'Internet' 서비스 요금제 중 가장 비싼 요금제 선택
     cursor.execute(f"""
@@ -79,13 +100,13 @@ def calculate_combined_product_pricing(db_name: str, combined_product_id: str) -
         JOIN CombinedProductEligibility cpe ON sp.id = cpe.service_plan_id
         WHERE cpe.combined_product_id = ? AND sp.service_type = 'Internet'
         ORDER BY sp.fee DESC
-        LIMIT 1
     """, (combined_product_id,))
-    top_internet_plan = cursor.fetchone()
-    if top_internet_plan:
-        associated_plans.append({"name": top_internet_plan['name'], "fee": top_internet_plan['fee'], "service_type": top_internet_plan['service_type']})
-        total_base_fee += top_internet_plan['fee']
-        
+    all_internet_plan = cursor.fetchall()
+    if all_internet_plan:
+        for internet_plan in all_internet_plan:
+            associated_plans.append({"name": internet_plan['name'], "fee": internet_plan['fee'], "service_type": internet_plan['service_type']})
+            total_base_fee += internet_plan['fee']
+            
     # 'TV' 서비스 요금제 중 가장 비싼 요금제 선택
     # TV는 선택 상품인 경우가 많으므로, min_iptv_lines가 0인 경우에도 포함 여부는 비즈니스 로직에 따라 결정
     # 여기서는 일단 있다면 포함하는 것으로 가정 (할인 계산을 위함)
@@ -95,12 +116,12 @@ def calculate_combined_product_pricing(db_name: str, combined_product_id: str) -
         JOIN CombinedProductEligibility cpe ON sp.id = cpe.service_plan_id
         WHERE cpe.combined_product_id = ? AND sp.service_type = 'TV'
         ORDER BY sp.fee DESC
-        LIMIT 1
     """, (combined_product_id,))
-    top_tv_plan = cursor.fetchone()
-    if top_tv_plan: # TV 요금제가 있다면 포함
-        associated_plans.append({"name": top_tv_plan['name'], "fee": top_tv_plan['fee'], "service_type": top_tv_plan['service_type']})
-        total_base_fee += top_tv_plan['fee']
+    all_tv_plan = cursor.fetchall()
+    if all_tv_plan: # TV 요금제가 있다면 포함
+        for tv_plan in all_tv_plan:
+            associated_plans.append({"name": tv_plan['name'], "fee": tv_plan['fee'], "service_type": tv_plan['service_type']})
+            total_base_fee += tv_plan['fee']
 
 
     # 3. 할인 정보 조회 및 적용
@@ -166,7 +187,7 @@ def calculate_combined_product_pricing(db_name: str, combined_product_id: str) -
     }
 
 
-def get_all_combined_product_pricings(db_name: str = "combined_products_final.db") -> List[Dict[str, Any]]:
+def get_all_combined_product_pricings(db_name: str = "combined_products.db") -> List[Dict[str, Any]]:
     """모든 결합 상품에 대해 가격 정보를 계산하여 반환합니다."""
     conn = get_db_connection(db_name)
     cursor = conn.cursor()
@@ -184,7 +205,7 @@ def get_all_combined_product_pricings(db_name: str = "combined_products_final.db
     return all_pricings
 
 
-def get_combined_product_with_largest_total_discount(db_name: str = "combined_products_final.db"):
+def get_combined_product_with_largest_total_discount(db_name: str = "combined_products.db"):
     """할인 총액이 가장 큰 결합상품과 그 각각의 개별 요금제 이름을 조회합니다."""
     all_pricings = get_all_combined_product_pricings(db_name)
 
@@ -204,7 +225,7 @@ def get_combined_product_with_largest_total_discount(db_name: str = "combined_pr
     }
     return result
 
-def get_combined_product_with_lowest_final_price(db_name: str = "combined_products_final.db"):
+def get_combined_product_with_lowest_final_price(db_name: str = "combined_products.db"):
     """할인 후 가격이 가장 저렴한 결합상품과 그 각각의 개별 요금제 이름을 조회합니다."""
     all_pricings = get_all_combined_product_pricings(db_name)
 
@@ -231,7 +252,7 @@ def get_combined_product_with_lowest_final_price(db_name: str = "combined_produc
     }
     return result
 
-def get_combined_product_with_highest_base_fee(db_name: str = "combined_products_final.db"):
+def get_combined_product_with_highest_base_fee(db_name: str = "combined_products.db"):
     """할인 전 가격이 가장 비싼 결합상품과 각각의 개별 요금제 이름을 조회합니다."""
     all_pricings = get_all_combined_product_pricings(db_name)
 
@@ -251,10 +272,147 @@ def get_combined_product_with_highest_base_fee(db_name: str = "combined_products
     }
     return result
 
+def classify_combined_product_discount_type(cursor, combined_product_id: str) -> str:
+    cursor.execute("""
+        SELECT COUNT(*) FROM Discount d
+        JOIN DiscountConditionByPlan p ON d.id = p.discount_id
+        WHERE d.combined_product_id = ?
+    """, (combined_product_id,))
+    has_plan = cursor.fetchone()[0] > 0
+
+    cursor.execute("""
+        SELECT COUNT(*) FROM Discount d
+        JOIN DiscountConditionByLineCount l ON d.id = l.discount_id
+        WHERE d.combined_product_id = ?
+    """, (combined_product_id,))
+    has_line = cursor.fetchone()[0] > 0
+
+    if has_plan and has_line:
+        return "mixed"
+    elif has_plan:
+        return "plan_based"
+    elif has_line:
+        return "line_based"
+    else:
+        return "none"
+    
+def search_combined_product_combinations(
+    db_path: str,
+    *,
+    min_counts: Dict[str, int] = {},
+    max_counts: Dict[str, int] = {},
+    required_plan_names: List[str] = [],
+    sort_by: str = "max_discount_amount",
+    limit: int = 10,
+    only_products: bool = False,
+    with_combinations: bool = False
+) -> List[Dict[str, Any]]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name FROM CombinedProduct")
+    all_combined_products = cursor.fetchall()
+
+    total_results = []
+
+    for combined_product in all_combined_products:
+        combined_product_id = combined_product["id"]
+        combined_product_name = combined_product["name"]
+
+        discount_type = classify_discount_type(cursor, combined_product_id)
+
+        plans_by_type: Dict[str, List[Dict[str, Any]]] = {
+            "Mobile": [], "Internet": [], "TV": []
+        }
+        cursor.execute("""
+            SELECT sp.id, sp.name, sp.fee, sp.service_type
+            FROM ServicePlan sp
+            JOIN CombinedProductEligibility cpe ON sp.id = cpe.service_plan_id
+            WHERE cpe.combined_product_id = ?
+        """, (combined_product_id,))
+        for row in cursor.fetchall():
+            service_type = row["service_type"]
+            if service_type in plans_by_type:
+                plans_by_type[service_type].append(dict(row))
+
+        # 필터: required_plan_names가 주어진 경우 해당 요금제를 포함하지 않는 상품은 건너뜀
+        if required_plan_names:
+            all_plan_names = [plan["name"] for plans in plans_by_type.values() for plan in plans]
+            if not all(name in all_plan_names for name in required_plan_names):
+                continue
+
+        all_type_combinations = []
+        for service_type, plans in plans_by_type.items():
+            max_count = max_counts.get(service_type, 0)
+            min_count = min_counts.get(service_type, 0)
+            service_type_combos = []
+            for r in range(min_count, max_count + 1):
+                service_type_combos.extend(combinations_with_replacement(plans, r))
+            all_type_combinations.append(service_type_combos)
+
+        all_combinations = []
+        for combo_set in product(*all_type_combinations):
+            combined = []
+            for sublist in combo_set:
+                combined.extend(sublist)
+            all_combinations.append(combined)
+
+        for combo in all_combinations:
+            combo_plan_names = {plan["name"] for plan in combo}
+    
+            # ➤ 조합에 required_plan_names 중 적어도 하나는 포함되어야 함
+            if required_plan_names and not any(name in combo_plan_names for name in required_plan_names):
+                continue
+            
+            total_fee = sum(plan["fee"] for plan in combo)
+
+            total_discount = 0
+            for plan in combo:
+                cursor.execute("""
+                    SELECT dcbp.override_discount_value
+                    FROM DiscountConditionByPlan dcbp
+                    WHERE dcbp.service_plan_id = ? AND dcbp.discount_id IN (
+                        SELECT id FROM Discount WHERE combined_product_id = ?
+                    )
+                """, (plan["id"], combined_product_id))
+                discounts = cursor.fetchall()
+                total_discount += sum(
+                    [row["override_discount_value"] for row in discounts if row["override_discount_value"] is not None]
+                )
+
+            final_price = total_fee - total_discount
+            result = {
+                "combined_product_name": combined_product_name,
+                "plans": combo,
+                "total_base_fee": total_fee,
+                "total_discount_amount": total_discount,
+                "final_price": final_price,
+                "discount_type": discount_type,
+                "combined_product_id": combined_product_id
+            }
+            total_results.append(result)
+
+    conn.close()
+
+    if sort_by == "max_discount_amount":
+        total_results.sort(key=lambda x: x["total_discount_amount"], reverse=True)
+    elif sort_by == "min_final_price":
+        total_results.sort(key=lambda x: x["final_price"])
+    elif sort_by == "max_total_base_fee":
+        total_results.sort(key=lambda x: x["total_base_fee"], reverse=True)
+
+    if only_products:
+        return list({r["combined_product_id"]: r for r in total_results}.values())[:limit]
+
+    if not with_combinations:
+        return total_results[:limit]
+
+    return total_results[:limit]
 
 # --- 테스트 실행 (main 블록은 실제 환경에 맞게 조정 필요) ---
 if __name__ == "__main__":
-    db_name = "combined_products_final.db"
+    db_name = "combined_products.db"
     
     # 이전에 실행한 insert_example_data_v2 함수가 이미 db를 채웠다고 가정
     # 필요하다면 여기에 데이터 삽입 로직을 다시 호출할 수 있음
@@ -283,3 +441,25 @@ if __name__ == "__main__":
     # 3. 할인 전 가격이 가장 비싼 결합상품 조회
     result_highest_base_fee = get_combined_product_with_highest_base_fee(db_name)
     print(result_highest_base_fee)
+
+    # 4. 모든 결합상품 중 할인액 상위 3개
+    for sort_rule in ["max_discount_amount", "min_final_price"]:
+        print("\n" + "="*50 + "\n")
+        print(f"sort rule: {sort_rule}\n")
+        total_results = search_combined_product_combinations(
+            db_path="combined_products.db",
+            max_counts={"Mobile": 2, "Internet": 3, "TV": 1},
+            min_counts={"Mobile": 2, "Internet": 3, "TV": 1}, 
+            required_plan_names=["요고 30"],
+            sort_by=sort_rule,
+            limit=3
+        )
+
+        for combo in total_results:
+            print(f"  조합 ({combo['combined_product_name']}):")
+            for plan in combo["plans"]:
+                print(f"    - {plan['service_type']} | {plan['name']} | {plan['fee']}원")
+            print(f"  총 기본 요금: {combo['total_base_fee']}원")
+            print(f"  총 할인액: {combo['total_discount_amount']}원")
+            print(f"  최종 가격: {combo['final_price']}원")
+            print("--------")
