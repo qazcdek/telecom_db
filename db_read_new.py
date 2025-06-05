@@ -153,6 +153,7 @@ def search_combined_product_combinations(
     min_counts: Dict[str, int] = {},
     max_counts: Dict[str, int] = {},
     required_plan_names: List[str] = [],
+    required_combined_names: List[str] = [],
     sort_by: str = "max_discount_amount",
     limit: int = 10,
     only_products: bool = False,
@@ -169,6 +170,8 @@ def search_combined_product_combinations(
     for combined_product in all_combined_products:
         combined_product_id = combined_product["combined_product_id"]
         combined_product_name = combined_product["combined_product_name"]
+        if combined_product_name not in required_combined_names and required_combined_names:
+            continue
 
         discount_type = classify_discount_type(cursor, combined_product_id)
 
@@ -322,9 +325,10 @@ if __name__ == "__main__":
         print(f"sort rule: {sort_rule}\n")
         total_results = search_combined_product_combinations(
             db_path="combined_products.db",
-            max_counts={"Mobile": 1, "Internet": 1, "TV": 0},
-            min_counts={"Mobile": 1, "Internet": 1, "TV": 0}, 
-            required_plan_names=["5G 초이스 프리미엄"],
+            max_counts={"Mobile": 3, "Internet": 0, "TV": 0},
+            min_counts={"Mobile": 3, "Internet": 0, "TV": 0}, 
+            required_plan_names=[],
+            required_combined_names=["우리가족 무선결합"],
             sort_by=sort_rule,
             limit=20
         )

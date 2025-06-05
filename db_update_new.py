@@ -835,3 +835,16 @@ if __name__ == "__main__":
     print("\nfamily_wireless_benefits_data (first item example):")
     if family_wireless_benefits_data:
         print(family_wireless_benefits_data[0])
+    
+    
+    insert_example_data_v2(
+        company_data={"name": company_name, "id": company_id}, # Assuming company_id is also needed
+        combined_product_data=family_wireless_combined_product_data,
+        service_plan_definitions=family_wireless_service_plan_definitions,
+        eligibility_data=family_wireless_eligibility_data,
+        discount_data=family_wireless_discount_data,
+        discount_conditions_by_plan=family_wireless_discount_by_plan_conditions,
+        discount_conditions_by_line_count=family_wireless_discount_by_line_count_condition,
+        benefits_data=family_wireless_benefits_data,
+        required_base_roles=family_wireless_required_base_roles
+    )
