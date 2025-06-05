@@ -25,9 +25,6 @@ table_sql_map = {
             name TEXT NOT NULL,
             company_id INTEGER NOT NULL,
             description TEXT,
-            min_mobile_lines INTEGER DEFAULT 0,
-            min_internet_lines INTEGER DEFAULT 0,
-            min_iptv_lines INTEGER DEFAULT 0,
             max_mobile_lines INTEGER,
             max_internet_lines INTEGER,
             max_iptv_lines INTEGER,
@@ -39,13 +36,22 @@ table_sql_map = {
             FOREIGN KEY (company_id) REFERENCES Company(id)
         )
     """,
+    "RequiredBaseRole": """
+        CREATE TABLE IF NOT EXISTS RequiredBaseRole (
+            combined_product_id TEXT,
+            base_role TEXT,                  -- 예: 'main_mobile', 'main_internet'
+            required_count INTEGER NOT NULL, -- 예: 1
+            PRIMARY KEY (combined_product_id, base_role),
+            FOREIGN KEY (combined_product_id) REFERENCES CombinedProduct(id)
+        )
+    """,
     "CombinedProductEligibility": """
         CREATE TABLE IF NOT EXISTS CombinedProductEligibility (
             combined_product_id VARCHAR(64) NOT NULL,
             service_plan_id VARCHAR(64) NOT NULL,
             min_lines INTEGER DEFAULT 0,
             max_lines INTEGER DEFAULT 1,
-            is_base_plan_required BOOLEAN DEFAULT FALSE,
+            base_role TEXT DEFAULT "",
             PRIMARY KEY (combined_product_id, service_plan_id),
             FOREIGN KEY (combined_product_id) REFERENCES CombinedProduct(id),
             FOREIGN KEY (service_plan_id) REFERENCES ServicePlan(id)
@@ -69,10 +75,11 @@ table_sql_map = {
         CREATE TABLE IF NOT EXISTS DiscountConditionByPlan (
             discount_id VARCHAR(64) NOT NULL,
             service_plan_id VARCHAR(64) NOT NULL,
-            condition_text VARCHAR(256),
+            base_role TEXT, -- 이 컬럼이 추가됩니다. (예: 'main_mobile', 'spouse_mobile')
+            condition_text TEXT,
             override_discount_value INTEGER,
-            override_unit VARCHAR(10),
-            PRIMARY KEY (discount_id, service_plan_id),
+            override_unit TEXT,
+            PRIMARY KEY (discount_id, service_plan_id, base_role), -- 기본 키에 base_role 추가
             FOREIGN KEY (discount_id) REFERENCES Discount(id),
             FOREIGN KEY (service_plan_id) REFERENCES ServicePlan(id)
         )
@@ -201,7 +208,7 @@ def create_combined_product_db(db_name="combined_products.db", table_sql_map=tab
         #         condition_text VARCHAR(256), -- 요금제 관련 추가 텍스트 조건 (예: "에센스 이상")
         #         override_discount_value INTEGER, -- 특정 요금제 시 할인 값 재정의
         #         override_unit VARCHAR(10), -- 재정의된 단위
-        #         PRIMARY KEY (discount_id, service_plan_id),
+        #         PRIMARY KEY (discount_id, service_plan_id, base_role),
         #         FOREIGN KEY (discount_id) REFERENCES Discount(id),
         #         FOREIGN KEY (service_plan_id) REFERENCES ServicePlan(id)
         #     )
@@ -235,6 +242,17 @@ def create_combined_product_db(db_name="combined_products.db", table_sql_map=tab
         #     )
         # """)
         cursor.execute(table_sql_map["Benefits"])
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RequiredBaseRole (
+                combined_product_id TEXT,
+                base_role TEXT,                  -- 예: 'main_mobile', 'main_internet'
+                required_count INTEGER NOT NULL, -- 예: 1
+                PRIMARY KEY (combined_product_id, base_role),
+                FOREIGN KEY (combined_product_id) REFERENCES CombinedProduct(id)
+            )
+        """)
+        cursor.execute(table_sql_map["RequiredBaseRole"])
 
         conn.commit()
         print(f"데이터베이스 '{db_name}'와 테이블이 성공적으로 생성되었습니다.")
