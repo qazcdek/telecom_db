@@ -699,152 +699,609 @@ if __name__ == "__main__":
     # # cursor = conn.cursor()
     # # cursor.execute("UPDATE DiscountConditionByPlan SET base_role = '' WHERE base_role IS NULL;")
 
-    # 4. '우리가족 무선결합' 데이터 파싱
+    # # 4. '우리가족 무선결합' 데이터 파싱
+    # company_name = "kt"
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT id FROM Company WHERE name = ?", (company_name,))
+    # company_id = cursor.fetchone()[0]
+    # conn.commit()
+    # conn.close()
+    # combined_product_name_family_wireless = "우리가족 무선결합"
+    # product_id_family_wireless = hash_id(f"{company_name}_{combined_product_name_family_wireless}")
+
+    # family_wireless_combined_product_data = {
+    #     "id": product_id_family_wireless,
+    #     "name": combined_product_name_family_wireless,
+    #     "company_id": company_id,
+    #     "description": "가족끼리 KT 휴대폰을 2회선부터 최대 5회선까지 결합하면, 각 회선의 월 요금제 금액에 따라 매월 회선별로 1,100원에서 최대 11,000원까지 할인을 받을 수 있는 모바일 결합 상품입니다. 할인은 신규, 우수기변, 재약정 고객을 대상으로 24개월 동안 제공되며, 기존 고객도 가입 가능합니다. 예를 들어, 2대 결합 시에는 월 최대 22,000원의 통신비 절감 효과가 있습니다.",
+    #     "max_mobile_lines": 5, # "최대 5회선까지 결합 가능합니다." [cite: 3]
+    #     "max_internet_lines": 0, # 이 상품은 모바일 전용 결합으로 인터넷 회선 조건은 명시되지 않음
+    #     "max_iptv_lines": 0, # 이 상품은 모바일 전용 결합으로 IPTV 회선 조건은 명시되지 않음
+    #     "join_condition": """가족 구성원 중 최소 2회선부터 최대 5회선까지 결합 가능합니다. 1회선이 되면 결합은 해지됩니다.
+    #                         모바일 신규 가입, 우수 기기변경 또는 재약정 가입일 기준 다음 달 말일까지 결합해야 하며, 이 경우 사용 중인 요금제에 따라 24개월간 할인 혜택을 받을 수 있습니다.
+    #                         우수기변이란 사용 중인 휴대폰을 반납하고 새로운 기기로 변경하는 것을 의미합니다.""",
+    #     "applicant_scope": "본인 및 배우자와 직계존비속, 형제자매, 며느리 및 사위", # [cite: 3]
+    #     "application_channel": "전화상담 신청", # [cite: 1]
+    #     "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=977&CateCode=6027&filter_code=114&option_code=166&pageSize=10", # [cite: 1]
+    #     "available": True
+    # }
+
+    # # Simulate fetching mobile_all from a database as in the example
+    # # These are hypothetical plans for demonstration, with the one example plan included.
+    # # ("Service Type", "Plan Name", Monthly Fee)
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT sp.service_type, sp.name, sp.fee FROM ServicePlan sp WHERE company_id = ?", (company_id,))
+    # mobile_all = cursor.fetchall()
+    # conn.close()
+
+    # family_wireless_service_plan_definitions = []
+    # for service_type, name, fee in mobile_all:
+    #     family_wireless_service_plan_definitions.append((service_type, name, fee))
+
+    # family_wireless_eligibility_data = []
+    # for _, plan_name, _ in mobile_all:
+    #     family_wireless_eligibility_data.append({
+    #         "plan_name": plan_name,
+    #         "min_lines": 0, # A specific plan is not individually required min_lines, but contributes to the bundle's 2-5 lines
+    #         "max_lines": 5, # A plan can be one of up to 5 mobile lines in the bundle [cite: 3]
+    #         "base_role": "main_mobile" # All lines in this bundle are mobile lines
+    #     })
+
+    # family_wireless_required_base_roles = {
+    #     "main_mobile": 2 # "최소 2회선부터" [cite: 3]
+    # }
+
+    # discount_name_family_wireless = "우리가족 무선결합 모바일 할인"
+    # discount_id_family_wireless = hash_id(f"{product_id_family_wireless}_{discount_name_family_wireless}")
+    # family_wireless_discount_data = {
+    #     "id": discount_id_family_wireless,
+    #     "combined_product_id": product_id_family_wireless,
+    #     "discount_name": discount_name_family_wireless,
+    #     "discount_type": "Amount",
+    #     "discount_value": 0, # To be overridden by plan conditions based on fee tiers [cite: 5]
+    #     "unit": "KRW",
+    #     "applies_to_service_type": "Mobile",
+    #     "applies_to_line_sequence": "per_line", # "회선별 최대 11,000원 할인" [cite: 1]
+    #     "note": "모바일 회선별 월정액 요금에 따라 할인 금액이 차등 적용됩니다. 할인은 최대 5회선까지, 24개월간 제공됩니다."
+    # }
+
+    # family_wireless_discount_by_plan_conditions = []
+    # for _, plan_name, fee in mobile_all:
+    #     discount_value = 0
+    #     condition_text = ""
+    #     if fee < 29700:
+    #         discount_value = 1100 # [cite: 5]
+    #         condition_text = "월정액 29,700원 미만" # [cite: 5]
+    #     elif fee < 54890: # 29,700원 이상 54,890원 미만
+    #         discount_value = 3300 # [cite: 5]
+    #         condition_text = "월정액 29,700원 이상 54,890원 미만" # [cite: 5]
+    #     elif fee < 73700: # 54,890원 이상 73,700원 미만
+    #         discount_value = 5500 # [cite: 5]
+    #         condition_text = "월정액 54,890원 이상 73,700원 미만" # [cite: 5]
+    #     elif fee < 84700: # 73,700원 이상 84,700원 미만
+    #         discount_value = 7700 # [cite: 5]
+    #         condition_text = "월정액 73,700원 이상 84,700원 미만" # [cite: 5]
+    #     else: # 84,700원 이상
+    #         discount_value = 11000 # [cite: 5]
+    #         condition_text = "월정액 84,700원 이상" # [cite: 5]
+
+    #     family_wireless_discount_by_plan_conditions.append({
+    #         "plan_name": plan_name,
+    #         "base_role": "", # Discount applies to any mobile line based on its fee
+    #         "condition_text": condition_text, # Describes the fee tier for clarity
+    #         "override_value": discount_value,
+    #         "override_unit": "KRW"
+    #     })
+
+    # family_wireless_discount_by_line_count_condition = {
+    #     "min_applicable_lines": 2, # "최소 2회선부터" [cite: 3]
+    #     "max_applicable_lines": 5, # "최대 5회선까지" [cite: 3]
+    #     "applies_per_line": True, # Discount is per line [cite: 1]
+    #     "override_discount_value": None, # Handled by plan conditions
+    #     "override_unit": None
+    # }
+
+    # family_wireless_benefits_data = [
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-1"), "benefit_type": "Discount", "content": "휴대폰 2대 결합 시 매월 최대 22,000원 할인 (1대당 11,000원)", "condition": "2회선 모두 월정액 84,700원 이상 요금제 사용 시"}, # [cite: 1, 5]
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-2"), "benefit_type": "Discount", "content": "회선별 요금제에 따라 월 1,100원 ~ 11,000원 할인", "condition": "모바일 요금제 월정액 기준"}, # [cite: 5]
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-3"), "benefit_type": "LineFlexibility", "content": "최소 2회선부터 최대 5회선까지 모바일 회선 결합 가능", "condition": None}, # [cite: 3]
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-4"), "benefit_type": "Eligibility", "content": "본인, 배우자, 직계존비속, 형제자매, 며느리/사위 간 결합 가능", "condition": None}, # [cite: 3]
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-5"), "benefit_type": "Duration", "content": "신규/우수기변/재약정 고객 대상 24개월간 할인 제공", "condition": "결합 조건 충족 시"}, # [cite: 1, 4]
+    #     {"id": hash_id(f"{product_id_family_wireless}_benefit-6"), "benefit_type": "Eligibility", "content": "기존 KT 모바일 고객도 결합 가능", "condition": None} # [cite: 1]
+    # ]
+
+    # # This is where you would call a function like insert_example_data_v2 from the example
+    # # For now, printing the main data structures:
+
+    # print("\n--- '우리가족 무선결합' Parsed Data ---")
+    # print("\nfamily_wireless_combined_product_data:")
+    # print(family_wireless_combined_product_data)
+    # print("\nfamily_wireless_service_plan_definitions (simulated):")
+    # print(family_wireless_service_plan_definitions)
+    # print("\nfamily_wireless_eligibility_data (first item example):")
+    # if family_wireless_eligibility_data:
+    #     print(family_wireless_eligibility_data[0])
+    # print("\nfamily_wireless_required_base_roles:")
+    # print(family_wireless_required_base_roles)
+    # print("\nfamily_wireless_discount_data:")
+    # print(family_wireless_discount_data)
+    # print("\nfamily_wireless_discount_by_plan_conditions (first item example):")
+    # if family_wireless_discount_by_plan_conditions:
+    #     print(family_wireless_discount_by_plan_conditions[0])
+    # print("\nfamily_wireless_discount_by_line_count_condition:")
+    # print(family_wireless_discount_by_line_count_condition)
+    # print("\nfamily_wireless_benefits_data (first item example):")
+    # if family_wireless_benefits_data:
+    #     print(family_wireless_benefits_data[0])
+    
+    
+    # insert_example_data_v2(
+    #     company_data={"name": company_name, "id": company_id}, # Assuming company_id is also needed
+    #     combined_product_data=family_wireless_combined_product_data,
+    #     service_plan_definitions=family_wireless_service_plan_definitions,
+    #     eligibility_data=family_wireless_eligibility_data,
+    #     discount_data=family_wireless_discount_data,
+    #     discount_conditions_by_plan=family_wireless_discount_by_plan_conditions,
+    #     discount_conditions_by_line_count=family_wireless_discount_by_line_count_condition,
+    #     benefits_data=family_wireless_benefits_data,
+    #     required_base_roles=family_wireless_required_base_roles
+    # )
+
+    # # Y끼리 무선결합
+    # # 1. 기본 설정
+    # company_name = "kt"
+    # combined_product_name_y_family = "Y끼리 무선결합"
+    # product_id_y_family = hash_id(f"{company_name}_{combined_product_name_y_family}")
+
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT id FROM Company WHERE name = ?", (company_name,))
+    # company_id = cursor.fetchone()[0]
+    # conn.close()
+
+    # # 2. CombinedProduct 정보
+    # y_family_combined_product_data = {
+    #     "id": product_id_y_family,
+    #     "name": combined_product_name_y_family,
+    #     "company_id": company_id,
+    #     "description": "만 18세~29세 고객이라면, Y끼리 모여 최대 4회선까지 결합 시 회선별로 1,100원부터 최대 15,000원까지 할인되는 Y 전용 무선 결합 상품입니다.",
+    #     "max_mobile_lines": 4,
+    #     "max_internet_lines": 0,
+    #     "max_iptv_lines": 0,
+    #     "join_condition": "만 18세 이상 ~ 29세 이하 연령대 고객 간 결합 가능. 대표 회선을 기준으로 최대 3회선까지 추가 결합 가능하며 총 4회선까지 혜택 제공.",
+    #     "applicant_scope": "만 18세 ~ 29세 고객 본인 및 Y끼리 결합 대상",
+    #     "application_channel": "KT 고객센터 및 대리점",
+    #     "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=1584&CateCode=6027",
+    #     "available": True
+    # }
+
+    # # 3. 요금제 정의
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT sp.service_type, sp.name, sp.fee FROM ServicePlan sp WHERE company_id = ?", (company_id,))
+    # mobile_all = cursor.fetchall()
+    # conn.close()
+
+    # y_family_service_plan_definitions = mobile_all.copy()
+
+    # # 4. Eligibility 조건
+    # y_family_eligibility_data = []
+    # for _, plan_name, _ in mobile_all:
+    #     y_family_eligibility_data.append({
+    #         "plan_name": plan_name,
+    #         "min_lines": 0,
+    #         "max_lines": 4,
+    #         "base_role": "main_mobile"
+    #     })
+
+    # y_family_required_base_roles = {
+    #     "main_mobile": 2  # 2회선 이상 시 할인 적용
+    # }
+
+    # # 5. 할인 조건 및 요금제별 할인액
+    # discount_name_y_family = "Y끼리 무선결합 할인"
+    # discount_id_y_family = hash_id(f"{product_id_y_family}_{discount_name_y_family}")
+    # y_family_discount_data = {
+    #     "id": discount_id_y_family,
+    #     "combined_product_id": product_id_y_family,
+    #     "discount_name": discount_name_y_family,
+    #     "discount_type": "Amount",
+    #     "discount_value": 0,
+    #     "unit": "KRW",
+    #     "applies_to_service_type": "Mobile",
+    #     "applies_to_line_sequence": "per_line",
+    #     "note": "요금제 월정액에 따라 회선별 최대 15,000원 할인 (총 4회선까지)"
+    # }
+
+    # # 할인 조건 정의
+    # y_family_discount_by_plan_conditions = []
+    # for _, plan_name, fee in mobile_all:
+    #     if fee >= 84700:
+    #         val, text = 11000, "월 84,700원 이상"
+    #     elif fee >= 73700:
+    #         val, text = 7700, "월 73,700원 이상 ~ 84,700원 미만"
+    #     elif fee >= 54890:
+    #         val, text = 5500, "월 54,890원 이상 ~ 73,700원 미만"
+    #     elif fee >= 29700:
+    #         val, text = 3300, "월 29,700원 이상 ~ 54,890원 미만"
+    #     else:
+    #         val, text = 1100, "월 29,700원 미만"
+    #     text = "만 19세 이상 만 34세 이하 고객 중\n " + text
+
+    #     y_family_discount_by_plan_conditions.append({
+    #         "plan_name": plan_name,
+    #         "base_role": "",
+    #         "condition_text": text,
+    #         "override_value": val,
+    #         "override_unit": "KRW"
+    #     })
+
+    # y_family_discount_by_line_count_condition = {
+    #     "min_applicable_lines": 2,
+    #     "max_applicable_lines": 5,
+    #     "applies_per_line": True,
+    #     "override_discount_value": None,
+    #     "override_unit": "KRW"
+    # }
+
+    # # 6. Benefits
+    # y_family_benefits_data = [
+    #     {"id": hash_id(f"{product_id_y_family}_benefit-4"), "benefit_type": "Flexibility", "content": "기존 고객도 결합 가능", "condition": None}
+    # ]
+
+    # # 7. 최종 삽입
+    # insert_example_data_v2(
+    #     company_data={"name": company_name, "id": company_id},
+    #     combined_product_data=y_family_combined_product_data,
+    #     service_plan_definitions=y_family_service_plan_definitions,
+    #     eligibility_data=y_family_eligibility_data,
+    #     discount_data=y_family_discount_data,
+    #     discount_conditions_by_plan=y_family_discount_by_plan_conditions,
+    #     discount_conditions_by_line_count=y_family_discount_by_line_count_condition,
+    #     benefits_data=y_family_benefits_data,
+    #     required_base_roles=y_family_required_base_roles
+    # )
+
+    # # 싱글 인터넷 베이직 결합
+    # company_name = "kt"
+    # combined_product_name = "싱글 인터넷 베이직 결합"
+    # product_id = hash_id(f"{company_name}_{combined_product_name}")
+
+    # # 1. 통신사 ID 조회
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT id FROM Company WHERE name = ?", (company_name,))
+    # company_id = cursor.fetchone()[0]
+    # conn.close()
+
+    # # 2. 상품 메타 정보
+    # single_basic_product_data = {
+    #     "id": product_id,
+    #     "name": combined_product_name,
+    #     "company_id": company_id,
+    #     "description": "혼자 사는 고객을 위한 인터넷+TV 결합 상품으로, 무약정에도 혜택을 받을 수 있으며 지니 TV 에센스 또는 베이직과 결합 시 할인 제공",
+    #     "max_mobile_lines": 0,
+    #     "max_internet_lines": 1,
+    #     "max_iptv_lines": 1,
+    #     "join_condition": "인터넷 베이직 요금제 + IPTV 결합 시 할인 적용. 동일 명의 필요. 무약정/약정 모두 가능.",
+    #     "applicant_scope": "1인 가구 고객",
+    #     "application_channel": "KT 고객센터 또는 온라인",
+    #     "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=1570",
+    #     "available": True
+    # }
+
+    # # 3. 요금제 정의 (무약정 요금 기준)
+    # single_basic_service_plans = [
+    #     ("Internet", "인터넷 베이직", 46200),
+    #     ("TV", "지니 TV 에센스", 25300),
+    #     ("TV", "지니 TV 베이직", 18150),
+    # ]
+
+    # # 4. Eligibility 정의
+    # single_basic_eligibility_data = [
+    #     {"plan_name": "인터넷 베이직", "min_lines": 0, "max_lines": 1, "base_role": "main_internet"},
+    #     {"plan_name": "지니 TV 에센스", "min_lines": 0, "max_lines": 1},
+    #     {"plan_name": "지니 TV 베이직", "min_lines": 0, "max_lines": 1},
+    # ]
+
+    # # 5. 필수 Base Role 정의
+    # single_basic_required_base_roles = {
+    #     "main_internet": 1
+    # }
+
+    # # 6. 할인 정보
+    # discount_id = hash_id(f"{product_id}-single-internet-tv-discount")
+    # single_basic_discount_data = {
+    #     "id": discount_id,
+    #     "combined_product_id": product_id,
+    #     "discount_name": "싱글 인터넷 베이직 결합 할인",
+    #     "discount_type": "Amount",
+    #     "discount_value": 0,  # 개별 요금제에서 override됨
+    #     "unit": "KRW",
+    #     "applies_to_service_type": "TV",
+    #     "applies_to_line_sequence": "1st_line",
+    #     "note": "인터넷 베이직 요금제 + 지니 TV 에센스/베이직 결합 시 제공되는 할인"
+    # }
+
+    # # 7. 할인 조건 by plan
+    # single_basic_discount_by_plan_conditions = [
+    #     {"plan_name": "지니 TV 에센스", "condition_text": None, "override_value": 5500, "override_unit": "KRW"},
+    #     {"plan_name": "지니 TV 베이직", "condition_text": None, "override_value": 3300, "override_unit": "KRW"},
+    # ]
+
+    # # 8. 혜택 정의
+    # single_basic_benefits_data = [
+    #     {"id": hash_id(f"{product_id}-benefit-1"), "benefit_type": "Discount", "content": "지니 TV 에센스 결합 시 5,500원 할인", "condition": None},
+    #     {"id": hash_id(f"{product_id}-benefit-2"), "benefit_type": "Discount", "content": "지니 TV 베이직 결합 시 3,300원 할인", "condition": None},
+    #     {"id": hash_id(f"{product_id}-benefit-3"), "benefit_type": "Eligibility", "content": "1인 가구 대상 전용 상품", "condition": None}
+    # ]
+
+    # # 9. 데이터 삽입
+    # insert_example_data_v2(
+    #     company_data={"name": company_name, "id": company_id},
+    #     combined_product_data=single_basic_product_data,
+    #     service_plan_definitions=single_basic_service_plans,
+    #     eligibility_data=single_basic_eligibility_data,
+    #     discount_data=single_basic_discount_data,
+    #     discount_conditions_by_plan=single_basic_discount_by_plan_conditions,
+    #     benefits_data=single_basic_benefits_data,
+    #     required_base_roles=single_basic_required_base_roles
+    # )
+
+    # # 프리미엄 가족결합
+    # company_name = "kt"
+    # combined_product_name = "프리미엄 가족결합"
+    # product_id = hash_id(f"{company_name}_{combined_product_name}")
+
+    # # 1. 회사 ID 조회
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT id FROM Company WHERE name = ?", (company_name,))
+    # company_id = cursor.fetchone()[0]
+    # conn.close()
+
+    # # 2. CombinedProduct 정보
+    # combined_product_data = {
+    #     "id": product_id,
+    #     "name": combined_product_name,
+    #     "company_id": company_id,
+    #     "description": "가족 모바일 결합 시, 월정액 77,000원 이상 5G/LTE 요금제 2~10번째 회선에 대해 25% 상당 월정액 요금할인을 제공하는 가족 단위 결합 상품입니다.",
+    #     "max_mobile_lines": 10,
+    #     "max_internet_lines": 0,
+    #     "max_iptv_lines": 0,
+    #     "join_condition": "가족 간 결합 (본인, 배우자, 직계존비속, 형제자매, 사위/며느리 포함).",
+    #     "applicant_scope": "본인 및 가족 구성원",
+    #     "application_channel": "KT 고객센터 및 지점",
+    #     "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=1193",
+    #     "available": True
+    # }
+
+    # # 3. 관련 요금제 정의
+    # conn = sqlite3.connect(db_name)
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT service_type, name, fee FROM ServicePlan WHERE company_id = ?", (company_id,))
+    # mobile_all = cursor.fetchall()
+    # conn.close()
+
+    # service_plan_definitions = mobile_all.copy()
+
+    # # 4. Eligibility 조건
+    # eligibility_data = []
+    # for _, plan_name, _ in mobile_all:
+    #     eligibility_data.append({
+    #         "plan_name": plan_name,
+    #         "min_lines": 0,
+    #         "max_lines": 10,
+    #         "base_role": "main_mobile"
+    #     })
+
+    # # 5. Required Base Roles
+    # required_base_roles = {
+    #     "main_mobile": 1
+    # }
+
+    # # 6. Discount 데이터
+    # discount_name = "프리미엄 가족결합 할인"
+    # discount_id = hash_id(f"{product_id}_{discount_name}")
+    # discount_data = {
+    #     "id": discount_id,
+    #     "combined_product_id": product_id,
+    #     "discount_name": discount_name,
+    #     "discount_type": "Amount",
+    #     "discount_value": 0,
+    #     "unit": "KRW",
+    #     "applies_to_service_type": "Mobile",
+    #     "applies_to_line_sequence": "per_line",
+    #     "note": "결합 회선 수 및 요금제에 따라 1인당 최대 27,500원까지 할인"
+    # }
+
+    # # 7. Discount 조건 정의 (요금제 기반)
+    # discount_by_plan_conditions = []
+    # for _, plan_name, fee in mobile_all:
+    #     val = 0
+    #     if plan_name == "5G 초이스 프리미엄":
+    #         val, text = 32500, ""
+    #     elif plan_name == "5G 초이스 스페셜":
+    #         val, text = 27500, ""
+    #     elif plan_name in ["5G 스페셜", "5G Y 스페셜"]:
+    #         val, text = 25000, ""
+    #     elif plan_name == "5G 초이스 베이직":
+    #         val, text = 22500, ""
+    #     elif plan_name in ["5G 베이직", "5G Y 베이직"]:
+    #         val, text = 20000, ""
+    #     else:
+    #         continue
+        
+    #     text = "청소년 할인, 총액 결합 할인 가능" + text
+    #     discount_by_plan_conditions.append({
+    #         "plan_name": plan_name,
+    #         "base_role": "",
+    #         "condition_text": f"요금제 기준: {text}",
+    #         "override_value": val,
+    #         "override_unit": "KRW"
+    #     })
+    #     discount_by_plan_conditions.append({
+    #         "plan_name": plan_name,
+    #         "base_role": "main_mobile",
+    #         "condition_text": f"요금제 기준: {text}",
+    #         "override_value": 0,
+    #         "override_unit": "KRW"
+    #     })
+
+    # # 8. Discount 조건 정의 (회선 수 기반)
+    # discount_by_line_count_condition = {
+    #     "min_applicable_lines": 2,
+    #     "max_applicable_lines": 10,
+    #     "applies_per_line": True,
+    #     "override_discount_value": None,
+    #     "override_unit": "KRW"
+    # }
+
+    # # 9. Benefits
+    # benefits_data = [
+    #     {"id": hash_id(f"{product_id}-benefit-1"), "benefit_type": "Discount", "content": "인터넷 + 모바일 결합 시 회선당 최대 27,500원 할인", "condition": "요금제/회선 수에 따라 다름"},
+    #     {"id": hash_id(f"{product_id}-benefit-2"), "benefit_type": "Eligibility", "content": "가족 간 결합 가능", "condition": "배우자, 직계존비속, 형제자매 포함"}
+    # ]
+
+    # # 10. 삽입 실행
+    # insert_example_data_v2(
+    #     company_data={"name": company_name, "id": company_id},
+    #     combined_product_data=combined_product_data,
+    #     service_plan_definitions=service_plan_definitions,
+    #     eligibility_data=eligibility_data,
+    #     discount_data=discount_data,
+    #     discount_conditions_by_plan=discount_by_plan_conditions,
+    #     discount_conditions_by_line_count=discount_by_line_count_condition,
+    #     benefits_data=benefits_data,
+    #     required_base_roles=required_base_roles
+    # )
+
+    # 프리미엄 싱글결합
+    # 1. 기본 설정
     company_name = "kt"
+    db_name = "combined_products.db"
+    combined_product_name = "프리미엄 싱글결합"
+    product_id = hash_id(f"{company_name}_{combined_product_name}")
+
+    # 회사 ID 조회
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM Company WHERE name = ?", (company_name,))
     company_id = cursor.fetchone()[0]
-    conn.commit()
-    conn.close()
-    combined_product_name_family_wireless = "우리가족 무선결합"
-    product_id_family_wireless = hash_id(f"{company_name}_{combined_product_name_family_wireless}")
-
-    family_wireless_combined_product_data = {
-        "id": product_id_family_wireless,
-        "name": combined_product_name_family_wireless,
-        "company_id": company_id,
-        "description": "가족끼리 KT 휴대폰을 2회선부터 최대 5회선까지 결합하면, 각 회선의 월 요금제 금액에 따라 매월 회선별로 1,100원에서 최대 11,000원까지 할인을 받을 수 있는 모바일 결합 상품입니다. 할인은 신규, 우수기변, 재약정 고객을 대상으로 24개월 동안 제공되며, 기존 고객도 가입 가능합니다. 예를 들어, 2대 결합 시에는 월 최대 22,000원의 통신비 절감 효과가 있습니다.",
-        "max_mobile_lines": 5, # "최대 5회선까지 결합 가능합니다." [cite: 3]
-        "max_internet_lines": 0, # 이 상품은 모바일 전용 결합으로 인터넷 회선 조건은 명시되지 않음
-        "max_iptv_lines": 0, # 이 상품은 모바일 전용 결합으로 IPTV 회선 조건은 명시되지 않음
-        "join_condition": """가족 구성원 중 최소 2회선부터 최대 5회선까지 결합 가능합니다. 1회선이 되면 결합은 해지됩니다.
-                            모바일 신규 가입, 우수 기기변경 또는 재약정 가입일 기준 다음 달 말일까지 결합해야 하며, 이 경우 사용 중인 요금제에 따라 24개월간 할인 혜택을 받을 수 있습니다.
-                            우수기변이란 사용 중인 휴대폰을 반납하고 새로운 기기로 변경하는 것을 의미합니다.""",
-        "applicant_scope": "본인 및 배우자와 직계존비속, 형제자매, 며느리 및 사위", # [cite: 3]
-        "application_channel": "전화상담 신청", # [cite: 1]
-        "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=977&CateCode=6027&filter_code=114&option_code=166&pageSize=10", # [cite: 1]
-        "available": True
-    }
-
-    # Simulate fetching mobile_all from a database as in the example
-    # These are hypothetical plans for demonstration, with the one example plan included.
-    # ("Service Type", "Plan Name", Monthly Fee)
-    conn = sqlite3.connect(db_name)
-    cursor = conn.cursor()
-    cursor.execute("SELECT sp.service_type, sp.name, sp.fee FROM ServicePlan sp WHERE company_id = ?", (company_id,))
+    cursor.execute("SELECT service_type, name, fee FROM ServicePlan WHERE company_id = ?", (company_id,))
     mobile_all = cursor.fetchall()
     conn.close()
 
-    family_wireless_service_plan_definitions = []
-    for service_type, name, fee in mobile_all:
-        family_wireless_service_plan_definitions.append((service_type, name, fee))
-
-    family_wireless_eligibility_data = []
-    for _, plan_name, _ in mobile_all:
-        family_wireless_eligibility_data.append({
-            "plan_name": plan_name,
-            "min_lines": 0, # A specific plan is not individually required min_lines, but contributes to the bundle's 2-5 lines
-            "max_lines": 5, # A plan can be one of up to 5 mobile lines in the bundle [cite: 3]
-            "base_role": "main_mobile" # All lines in this bundle are mobile lines
-        })
-
-    family_wireless_required_base_roles = {
-        "main_mobile": 2 # "최소 2회선부터" [cite: 3]
+    # 2. CombinedProduct 정보
+    premium_single_combined_product_data = {
+        "id": product_id,
+        "name": combined_product_name,
+        "company_id": company_id,
+        "description": "인터넷 + 모바일 회선 각각 1회선씩 결합하면 모바일 요금에서 할인 제공. 모바일 월정액 77,000원 이상 요금제 및 인터넷 베이직 이상인 경우 할인.",
+        "max_mobile_lines": 1,
+        "max_internet_lines": 1,
+        "max_iptv_lines": 0,
+        "join_condition": """KT 인터넷 명의자 기준으로 모바일 명의자가 동일인이거나 가족관계인 경우 가입 가능.
+                            월정액 77,000원 이상 5G/LTE 요금제만 결합 가능 (데이터 전용, M2M 등 제외).
+                            가입 후 회선 추가 시 총액결합으로 전환됨.""",
+        "applicant_scope": "본인 및 배우자와 직계 존비속, 형제자매, 며느리/사위",
+        "application_channel": "KT 고객센터 및 대리점",
+        "url": "https://product.kt.com/wDic/productDetail.do?ItemCode=1267",
+        "available": True,
     }
 
-    discount_name_family_wireless = "우리가족 무선결합 모바일 할인"
-    discount_id_family_wireless = hash_id(f"{product_id_family_wireless}_{discount_name_family_wireless}")
-    family_wireless_discount_data = {
-        "id": discount_id_family_wireless,
-        "combined_product_id": product_id_family_wireless,
-        "discount_name": discount_name_family_wireless,
-        "discount_type": "Amount",
-        "discount_value": 0, # To be overridden by plan conditions based on fee tiers [cite: 5]
-        "unit": "KRW",
-        "applies_to_service_type": "Mobile",
-        "applies_to_line_sequence": "per_line", # "회선별 최대 11,000원 할인" [cite: 1]
-        "note": "모바일 회선별 월정액 요금에 따라 할인 금액이 차등 적용됩니다. 할인은 최대 5회선까지, 24개월간 제공됩니다."
-    }
-
-    family_wireless_discount_by_plan_conditions = []
-    for _, plan_name, fee in mobile_all:
-        discount_value = 0
-        condition_text = ""
-        if fee < 29700:
-            discount_value = 1100 # [cite: 5]
-            condition_text = "월정액 29,700원 미만" # [cite: 5]
-        elif fee < 54890: # 29,700원 이상 54,890원 미만
-            discount_value = 3300 # [cite: 5]
-            condition_text = "월정액 29,700원 이상 54,890원 미만" # [cite: 5]
-        elif fee < 73700: # 54,890원 이상 73,700원 미만
-            discount_value = 5500 # [cite: 5]
-            condition_text = "월정액 54,890원 이상 73,700원 미만" # [cite: 5]
-        elif fee < 84700: # 73,700원 이상 84,700원 미만
-            discount_value = 7700 # [cite: 5]
-            condition_text = "월정액 73,700원 이상 84,700원 미만" # [cite: 5]
-        else: # 84,700원 이상
-            discount_value = 11000 # [cite: 5]
-            condition_text = "월정액 84,700원 이상" # [cite: 5]
-
-        family_wireless_discount_by_plan_conditions.append({
-            "plan_name": plan_name,
-            "base_role": "", # Discount applies to any mobile line based on its fee
-            "condition_text": condition_text, # Describes the fee tier for clarity
-            "override_value": discount_value,
-            "override_unit": "KRW"
-        })
-
-    family_wireless_discount_by_line_count_condition = {
-        "min_applicable_lines": 2, # "최소 2회선부터" [cite: 3]
-        "max_applicable_lines": 5, # "최대 5회선까지" [cite: 3]
-        "applies_per_line": True, # Discount is per line [cite: 1]
-        "override_discount_value": None, # Handled by plan conditions
-        "override_unit": None
-    }
-
-    family_wireless_benefits_data = [
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-1"), "benefit_type": "Discount", "content": "휴대폰 2대 결합 시 매월 최대 22,000원 할인 (1대당 11,000원)", "condition": "2회선 모두 월정액 84,700원 이상 요금제 사용 시"}, # [cite: 1, 5]
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-2"), "benefit_type": "Discount", "content": "회선별 요금제에 따라 월 1,100원 ~ 11,000원 할인", "condition": "모바일 요금제 월정액 기준"}, # [cite: 5]
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-3"), "benefit_type": "LineFlexibility", "content": "최소 2회선부터 최대 5회선까지 모바일 회선 결합 가능", "condition": None}, # [cite: 3]
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-4"), "benefit_type": "Eligibility", "content": "본인, 배우자, 직계존비속, 형제자매, 며느리/사위 간 결합 가능", "condition": None}, # [cite: 3]
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-5"), "benefit_type": "Duration", "content": "신규/우수기변/재약정 고객 대상 24개월간 할인 제공", "condition": "결합 조건 충족 시"}, # [cite: 1, 4]
-        {"id": hash_id(f"{product_id_family_wireless}_benefit-6"), "benefit_type": "Eligibility", "content": "기존 KT 모바일 고객도 결합 가능", "condition": None} # [cite: 1]
+    # 3. Eligible Service Plans (모든 모바일 중 77,000원 이상 요금제만)
+    eligible_mobile_plans = [
+        plan for plan in mobile_all if plan[2] >= 77000  # fee 기준 필터
     ]
 
-    # This is where you would call a function like insert_example_data_v2 from the example
-    # For now, printing the main data structures:
+    premium_single_service_plan_definitions = eligible_mobile_plans.copy()
 
-    print("\n--- '우리가족 무선결합' Parsed Data ---")
-    print("\nfamily_wireless_combined_product_data:")
-    print(family_wireless_combined_product_data)
-    print("\nfamily_wireless_service_plan_definitions (simulated):")
-    print(family_wireless_service_plan_definitions)
-    print("\nfamily_wireless_eligibility_data (first item example):")
-    if family_wireless_eligibility_data:
-        print(family_wireless_eligibility_data[0])
-    print("\nfamily_wireless_required_base_roles:")
-    print(family_wireless_required_base_roles)
-    print("\nfamily_wireless_discount_data:")
-    print(family_wireless_discount_data)
-    print("\nfamily_wireless_discount_by_plan_conditions (first item example):")
-    if family_wireless_discount_by_plan_conditions:
-        print(family_wireless_discount_by_plan_conditions[0])
-    print("\nfamily_wireless_discount_by_line_count_condition:")
-    print(family_wireless_discount_by_line_count_condition)
-    print("\nfamily_wireless_benefits_data (first item example):")
-    if family_wireless_benefits_data:
-        print(family_wireless_benefits_data[0])
-    
-    
+    # 4. Eligibility 조건
+    premium_single_eligibility_data = [
+        {
+            "plan_name": plan[1],
+            "min_lines": 1,
+            "max_lines": 1,
+            "base_role": "main_mobile"
+        } for plan in eligible_mobile_plans
+    ]
+    #     ("Internet", "인터넷 에센스", 55000), # [cite: 4] (요고뭉치 PDF에 명시된 무약정 요금 사용)
+    #     ("Internet", "인터넷 베이직", 46200), # [cite: 4]
+    #     ("Internet", "인터넷 슬림", 39600), # [cite: 4]
+    #     ("Internet", "인터넷 에센스 와이파이", 63800), # [cite: 7]
+    #     ("Internet", "인터넷 베이직 와이파이", 55000), # [cite: 7]
+    #     ("Internet", "인터넷 슬림 와이파이", 48400), # [cite: 7]
+    for internet_plan in ["인터넷 베이직", "인터넷 베이직 와이파이", "인터넷 에센스", "인터넷 에센스 와이파이",]:
+        premium_single_eligibility_data.append({
+            "plan_name": internet_plan,
+            "min_lines": 1,
+            "max_lines": 1,
+            "base_role": "main_internet"
+        })
+
+    # 5. Required Roles
+    premium_single_required_base_roles = {
+        "main_mobile": 1,
+        "main_internet": 1
+    }
+
+    # 6. 할인 정보
+    discount_name = "프리미엄 싱글결합 할인"
+    discount_id = hash_id(f"{product_id}_{discount_name}")
+    premium_single_discount_data = {
+        "id": discount_id,
+        "combined_product_id": product_id,
+        "discount_name": discount_name,
+        "discount_type": "Amount",
+        "discount_value": 0,
+        "unit": "KRW",
+        "applies_to_service_type": "Mobile",
+        "applies_to_line_sequence": "1st_line",
+        "note": "인터넷 1회선 + 모바일 요금제 77,000원 이상 1회선 결합 시 모바일 할인 제공. 회선 추가 시 총액결합 전환"
+    }
+
+    premium_single_discount_by_plan_conditions = []
+    for plan in eligible_mobile_plans:
+        plan_name = plan[1]
+        if plan_name == "5G 초이스 프리미엄":
+            discount_value = 32500
+        elif plan_name == "5G 초이스 스페셜":
+            discount_value = 27500
+        elif plan_name in ["5G 스페셜", "5G Y 스페셜"]:
+            discount_value = 25000
+        elif plan_name == "5G 초이스 베이직":
+            discount_value = 22500
+        elif plan_name in ["5G 베이직", "5G Y 베이직"]:
+            discount_value = 20000
+        premium_single_discount_by_plan_conditions.append(
+            {
+                "plan_name": plan_name,
+                "base_role": "main_mobile",
+                "condition_text": "",
+                "override_value": discount_value,  # 예시 할인액 (PDF에 정확한 금액 명시되지 않음)
+                "override_unit": "KRW"
+            }
+
+        )
+
+    # 7. Benefits
+    premium_single_benefits_data = [
+        {"id": hash_id(f"{product_id}_benefit-1"), "benefit_type": "Discount", "content": "모바일 1회선 결합 시 할인", "condition": "인터넷 + 월정액 77,000원 이상 모바일 결합 시"},
+        {"id": hash_id(f"{product_id}_benefit-2"), "benefit_type": "Flexibility", "content": "신규/기변/기존 고객 모두 신청 가능", "condition": None},
+        {"id": hash_id(f"{product_id}_benefit-3"), "benefit_type": "Conversion", "content": "회선 추가 시 총액결합으로 전환", "condition": "2회선 이상 결합 시"},
+    ]
+
+    # 8. Insert
     insert_example_data_v2(
-        company_data={"name": company_name, "id": company_id}, # Assuming company_id is also needed
-        combined_product_data=family_wireless_combined_product_data,
-        service_plan_definitions=family_wireless_service_plan_definitions,
-        eligibility_data=family_wireless_eligibility_data,
-        discount_data=family_wireless_discount_data,
-        discount_conditions_by_plan=family_wireless_discount_by_plan_conditions,
-        discount_conditions_by_line_count=family_wireless_discount_by_line_count_condition,
-        benefits_data=family_wireless_benefits_data,
-        required_base_roles=family_wireless_required_base_roles
+        company_data={"name": company_name, "id": company_id},
+        combined_product_data=premium_single_combined_product_data,
+        service_plan_definitions=premium_single_service_plan_definitions,
+        eligibility_data=premium_single_eligibility_data,
+        discount_data=premium_single_discount_data,
+        discount_conditions_by_plan=premium_single_discount_by_plan_conditions,
+        benefits_data=premium_single_benefits_data,
+        required_base_roles=premium_single_required_base_roles,
     )

@@ -170,11 +170,18 @@ def search_combined_product_combinations(
     for combined_product in all_combined_products:
         combined_product_id = combined_product["combined_product_id"]
         combined_product_name = combined_product["combined_product_name"]
-        if combined_product_name not in required_combined_names and required_combined_names:
+        if (combined_product_name not in required_combined_names) and required_combined_names:
             continue
 
         discount_type = classify_discount_type(cursor, combined_product_id)
-
+        # RequiredBaseRole ("SELECT sp.service_type, sp.name, sp.fee FROM ServicePlan sp WHERE company_id = ?", (company_id,)) // combined_product_id, base_role, required_count
+        cursor.execute("""
+            SELECT rbr.combined_product_id, rbr.base_role, rbr.required_count
+            FROM RequiredBaseRole rbr
+            WHERE combined_product_id = ?
+        """, (combined_product_id, ))
+        cursor.fetchall()
+        
         plans_by_type: Dict[str, List[Dict[str, Any]]] = {
             "Mobile": [], "Internet": [], "TV": []
         }
@@ -325,10 +332,10 @@ if __name__ == "__main__":
         print(f"sort rule: {sort_rule}\n")
         total_results = search_combined_product_combinations(
             db_path="combined_products.db",
-            max_counts={"Mobile": 3, "Internet": 0, "TV": 0},
-            min_counts={"Mobile": 3, "Internet": 0, "TV": 0}, 
+            max_counts={"Mobile": 1, "Internet": 0, "TV": 0},
+            min_counts={"Mobile": 1, "Internet": 0, "TV": 0}, 
             required_plan_names=[],
-            required_combined_names=["우리가족 무선결합"],
+            required_combined_names=[],
             sort_by=sort_rule,
             limit=20
         )
